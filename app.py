@@ -4,14 +4,14 @@ import requests
 
 app = Flask(__name__)
 DELAY_HOURS = 2
-# ⚠️ ON METTRA L'ADRESSE DE TON BOT FPS.MS ICI PLUS TARD
-BOT_WEBHOOK_URL = "http://37.148.199.201:10445/receive_order" 
+# On récupère l'URL de ton bot FPS.ms depuis les variables d'environnement Render
+BOT_WEBHOOK_URL = os.environ.get("BOT_WEBHOOK_URL", "http://37.148.199.201:10445/receive_order")
 
 HTML = """
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8"><title>Paiement Paysafecard</title>
+  <meta charset="UTF-8"><title>Paiement Paysafecard - KovaShop</title>
   <style>
     body { font-family: system-ui; max-width: 480px; margin: 80px auto; padding: 24px; background: #0f1115; color: #eee; }
     input { width: 100%; padding: 14px; font-size: 20px; letter-spacing: 3px; text-align: center; border-radius: 8px; border: 1px solid #333; background: #1a1d24; color: #fff; margin-top: 10px;}
@@ -34,7 +34,7 @@ HTML = """
 
 @app.route("/checkout")
 def checkout():
-    invoice_id = request.args.get("invoice_id") or "INCONNU"
+    invoice_id = request.args.get("invoice_id") or request.args.get("invoice") or "INCONNU"
     return render_template_string(HTML, invoice_id=invoice_id, delay=DELAY_HOURS)
 
 @app.route("/submit", methods=["POST"])
@@ -44,11 +44,13 @@ def submit():
     
     try:
         # On envoie le PIN au bot FPS.ms
-        requests.post(BOT_WEBHOOK_URL, json={"invoice_id": invoice_id, "pin": pin})
+        requests.post(BOT_WEBHOOK_URL, json={"invoice_id": invoice_id, "pin": pin}, timeout=10)
     except Exception as e:
         return f"Erreur de connexion au bot : {e}", 500
         
     return "<h2 style='color:#2ecc71;text-align:center;margin-top:100px;font-family:sans-serif;'>✅ Code envoyé !<br>Ta commande sera validée sous peu.</h2>"
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    # Render utilise le port 10000 par défaut, on s'adapte
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
